@@ -28,8 +28,6 @@ rankall <- function(outcome, num="best"){
     
     sorted <- reduced[with(reduced, order(State, reduced[, 3], Hospital.Name)), ]
     state_split <- split(sorted, sorted$State)
-    #print(head(state_split))
-
     nth <- NULL
     result <- do.call(rbind, lapply(state_split, function(data){
         #Get nth in the rank
@@ -45,5 +43,5 @@ rankall <- function(outcome, num="best"){
     colnames(result) <- c("state", "hospital")
     result
 }
-#print(tail(rankall("heart failure"), 10))
+print(tail(rankall("heart failure"), 10))
 #rankall("heart attack", 1)
