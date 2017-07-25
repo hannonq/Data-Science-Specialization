@@ -1,0 +1,55 @@
+---
+title: "U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database"
+author: "Hannon Queiroz"
+date: "25 July 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synopsis
+
+## Getting the data
+First, let's download the data. The data used for this analysis was downloaded on 25/07/2017
+```{r}
+fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+if(!file.exists("./dataset.bz2")){
+    # dir.create("./data")
+    download.file(fileUrl, destfile="./dataset.bz2", method="curl")
+}
+```
+
+## Loading the data
+Because the data is compressed in a `.bz2` file, let's first uncompress it using the `bunzip2` function from the `R.utils` package.
+```{r message=FALSE, results='hide'}
+# Check if package is installed, and install it if necessary
+if("R.utils" %in% rownames(installed.packages()) == FALSE){
+    install.packages("R.utils")
+}
+library(R.utils)
+bunzip2("dataset.bz2", remove = FALSE, skip = TRUE)
+```
+
+
+## Data Processing
+Let's read the data using the `data.table` package.
+```{r cache=TRUE, message=FALSE, results='hide'}
+# Check if package is installed, and install it if necessary
+if("data.table" %in% rownames(installed.packages()) == FALSE){
+    install.packages("data.table")
+}
+library(data.table)
+data <- fread("dataset", sep = ',', na.strings = c(""), 
+              select = c("EVTYPE", "FATALITIES", "INJURIES", ""), 
+              nrows = 10)
+```
+
+Now, let's take a look at what our dataset looks like:
+```{r}
+print(str(data))
+print(head(data))
+```
+
+
