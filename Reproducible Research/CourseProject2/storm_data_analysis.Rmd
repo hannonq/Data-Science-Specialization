@@ -11,6 +11,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Synopsis
 
+## Questions
+1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+2. Across the United States, which types of events have the greatest economic consequences?
+
 ## Getting the data
 First, let's download the data. The data used for this analysis was downloaded on 25/07/2017
 ```{r}
@@ -35,6 +39,7 @@ bunzip2("dataset.bz2", remove = FALSE, skip = TRUE)
 
 ## Data Processing
 Let's read the data using the `data.table` package.
+For the purpose of this assignment, only some of the columns in the dataset have been selected.
 ```{r cache=TRUE, message=FALSE, results='hide'}
 # Check if package is installed, and install it if necessary
 if("data.table" %in% rownames(installed.packages()) == FALSE){
@@ -42,8 +47,11 @@ if("data.table" %in% rownames(installed.packages()) == FALSE){
 }
 library(data.table)
 data <- fread("dataset", sep = ',', na.strings = c(""), 
-              select = c("EVTYPE", "FATALITIES", "INJURIES", ""), 
-              nrows = 10)
+              select = c("EVTYPE", "FATALITIES", "INJURIES", "WFO", "F",
+                         "MAG", "PROPDMG", "PROPDMGEXP", "CROPDMG",
+                         "CROPDMGEXP")
+              )
+
 ```
 
 Now, let's take a look at what our dataset looks like:
@@ -51,5 +59,55 @@ Now, let's take a look at what our dataset looks like:
 print(str(data))
 print(head(data))
 ```
+
+To address the first question, let's look at the `EVTYPE` column
+```{r}
+length(unique(data$EVTYPE))
+```
+We can see that there are way too many entries. Looking at the data may enlighten us as to why that is.
+The data is sorted before the `print` function is called to make it easier to spot typos.
+
+```{r}
+print(sort(unique(data$EVTYPE)))
+```
+
+The first cleaning that will be done is to remove leading and trailing whitespaces and set all the strings to lower case.
+```{r}
+data$EVTYPE <- trimws(tolower(data$EVTYPE))
+```
+
+Secondly, let's remove all numeric values from the event types, as they are not relevant for this analisys.
+e.g. replace "hail 0.75" with "hail"
+
+```{r}
+
+```
+
+
+Let's take another look now:
+```{r}
+# print(length(unique(data$EVTYPE)))
+# print(sort(unique(data$EVTYPE)))
+```
+
+Now, let's try to remove the duplicates caused by typos. For that, we'll use the `amatch` function from the `stringdist` package.
+```{r}
+# Check if package is installed, and install it if necessary
+if("stringdist" %in% rownames(installed.packages()) == FALSE){
+    install.packages("stringdist")
+}
+library(stringdist)
+
+
+```
+
+
+
+
+## Acknowledgements
+[This post][1] by Usama A.F. Khalil was of great help during the developtment of this assignment.
+
+[1]: https://www.coursera.org/learn/reproducible-research/discussions/weeks/4/threads/IdtP_JHzEeaePQ71AQUtYw "Post"
+
 
 
