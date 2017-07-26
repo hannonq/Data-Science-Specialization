@@ -124,6 +124,11 @@ Same for snow events
 data$EVTYPE <- gsub(".*snow*","heavy snow", data$EVTYPE)
 ```
 
+Remove all "summary"
+```{r cache=TRUE}
+data <- data[!grepl("summary", data$EVTYPE), ]
+```
+
 
 Let's take another look now:
 ```{r}
@@ -131,31 +136,47 @@ print(length(unique(data$EVTYPE)))
 print(sort(unique(data$EVTYPE)))
 ```
 
-Now, let's try to remove the duplicates caused by typos. For that, we'll use the `amatch` function from the `stringdist` package.
-```{r}
-checkAndInstall("stringdist")
-library(stringdist)
-```
 
 ```{r cache=TRUE}
 checkAndInstall("dplyr")
 library(dplyr)
-
 freq <- as.data.frame(table(data$EVTYPE))
 freq <- arrange(freq, desc(Freq))
+rownames(freq) <- freq[,1]
+colnames(freq) <- c("EVTYPE", "freq")
 print(freq)
-d <- adist(freq[, 1])
-rownames(d) <- freq[, 1]
-hc <- hclust(as.dist(d))
 ```
-```{r fig.width=100, fig.height=15}
-plot(hc, hang = -1, cex = 0.8)
-rect.hclust(hc,k=60)
+
+For this analysis, we will only consider events that happened 10 times or more AND caused at least 1 fatality or casualty.
+```{r cache=TRUE}
+library(dplyr)
+data_freq <- merge(data, freq)
+data_freq$total <- data_freq$FATALITIES + data_freq$INJURIES
+
+question1 <- filter(data_freq, total > 0)
+question1 <- question1 %>%
+    group_by(EVTYPE) %>%
+    summarise(
+        total = sum(total)
+    )
+question1 <- arrange(question1, desc(total))
+print(head(question1, 10))
 ```
 
 ```{r}
-print(quantile(freq$Freq, c(.25, .50, .85)))
+print("aaaa")
+
+question1 <- as.data.frame(question1[1:5, ])
+print(head(question1))
+
+library(ggplot2)
+ggplot(data = question1, aes(x=reorder(EVTYPE, -total), y=total)) + 
+    geom_bar(stat="identity") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    xlab("Event type") +
+    ylab("Total injuries + casualties")
 ```
+
 
 
 
