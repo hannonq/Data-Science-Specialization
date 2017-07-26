@@ -25,13 +25,21 @@ if(!file.exists("./dataset.bz2")){
 }
 ```
 
+## Helper functions
+This function checks if a package is already installed in the system, and installs it if needed
+```{r  message=FALSE, results='hide'}
+checkAndInstall <- function(pkgName){
+    if(pkgName %in% rownames(installed.packages()) == FALSE){
+        install.packages(pkgName)
+    }
+}
+```
+
+
 ## Loading the data
 Because the data is compressed in a `.bz2` file, let's first uncompress it using the `bunzip2` function from the `R.utils` package.
 ```{r message=FALSE, results='hide'}
-# Check if package is installed, and install it if necessary
-if("R.utils" %in% rownames(installed.packages()) == FALSE){
-    install.packages("R.utils")
-}
+checkAndInstall("R.utils")
 library(R.utils)
 bunzip2("dataset.bz2", remove = FALSE, skip = TRUE)
 ```
@@ -40,17 +48,15 @@ bunzip2("dataset.bz2", remove = FALSE, skip = TRUE)
 ## Data Processing
 Let's read the data using the `data.table` package.
 For the purpose of this assignment, only some of the columns in the dataset have been selected.
-```{r cache=TRUE, message=FALSE, results='hide'}
+```{r cache=TRUE}
 # Check if package is installed, and install it if necessary
-if("data.table" %in% rownames(installed.packages()) == FALSE){
-    install.packages("data.table")
-}
+checkAndInstall("data.table")
 library(data.table)
 data <- fread("dataset", sep = ',', na.strings = c(""), 
               select = c("EVTYPE", "FATALITIES", "INJURIES", "WFO", "F",
                          "MAG", "PROPDMG", "PROPDMGEXP", "CROPDMG",
                          "CROPDMGEXP")
-              )
+)
 
 ```
 
@@ -71,35 +77,87 @@ The data is sorted before the `print` function is called to make it easier to sp
 print(sort(unique(data$EVTYPE)))
 ```
 
-The first cleaning that will be done is to remove leading and trailing whitespaces and set all the strings to lower case.
+The first cleaning that will be done is to set all the strings to lower case.
 ```{r}
-data$EVTYPE <- trimws(tolower(data$EVTYPE))
+data$EVTYPE <- tolower(data$EVTYPE)
 ```
 
 Secondly, let's remove all numeric values from the event types, as they are not relevant for this analisys.
 e.g. replace "hail 0.75" with "hail"
 
-```{r}
+```{r cache=TRUE}
+regmatches(
+    data$EVTYPE,
+    gregexpr("[[:digit:]]+\\.*[[:digit:]]*", data$EVTYPE)
+) <- ""
+```
 
+```{r cache=TRUE, eval=FALSE}
+data$EVTYPE <- gsub("\\([^\\)]+\\)","", data$EVTYPE)
+```
+
+Remove all non-alphanumeric characters and remove unecessary whitespaces:
+```{r cache=TRUE,  message=FALSE, results='hide'}
+checkAndInstall("qdap")
+library(qdap)
+data$EVTYPE <- Trim(clean(gsub("\\W", " ", data$EVTYPE)))
+# data$EVTYPE <- gsub("\W", " ", data$EVTYPE)
+```
+
+Replace "tstm" with "thunderstorm"
+```{r cache=TRUE}
+data$EVTYPE <- gsub("tstm","thunderstorm", data$EVTYPE)
+```
+
+Suppress the hurricane name
+```{r cache=TRUE}
+data$EVTYPE <- gsub("hurricane.*","hurricane", data$EVTYPE)
+```
+
+Since the official event name for thunderstorm-related events is "thunderstorm wind", we can clean all the thunderstorm-related names.
+```{r cache=TRUE}
+data$EVTYPE <- gsub(".*thunderstorm.*","thunderstorm wind", data$EVTYPE)
+```
+
+Same for snow events
+```{r cache=TRUE}
+data$EVTYPE <- gsub(".*snow*","heavy snow", data$EVTYPE)
 ```
 
 
 Let's take another look now:
 ```{r}
-# print(length(unique(data$EVTYPE)))
-# print(sort(unique(data$EVTYPE)))
+print(length(unique(data$EVTYPE)))
+print(sort(unique(data$EVTYPE)))
 ```
 
 Now, let's try to remove the duplicates caused by typos. For that, we'll use the `amatch` function from the `stringdist` package.
 ```{r}
-# Check if package is installed, and install it if necessary
-if("stringdist" %in% rownames(installed.packages()) == FALSE){
-    install.packages("stringdist")
-}
+checkAndInstall("stringdist")
 library(stringdist)
-
-
 ```
+
+```{r cache=TRUE}
+checkAndInstall("dplyr")
+library(dplyr)
+
+freq <- as.data.frame(table(data$EVTYPE))
+freq <- arrange(freq, desc(Freq))
+print(freq)
+d <- adist(freq[, 1])
+rownames(d) <- freq[, 1]
+hc <- hclust(as.dist(d))
+```
+```{r fig.width=100, fig.height=15}
+plot(hc, hang = -1, cex = 0.8)
+rect.hclust(hc,k=60)
+```
+
+```{r}
+print(quantile(freq$Freq, c(.25, .50, .85)))
+```
+
+
 
 
 
