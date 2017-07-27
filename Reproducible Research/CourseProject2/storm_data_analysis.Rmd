@@ -1,7 +1,7 @@
 ---
-title: "U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database"
+title: "Health, property and crop damages analyses from the U.S. storm database"
 author: "Hannon Queiroz"
-date: "25 July 2017"
+date: "27 July 2017"
 output: html_document
 ---
 
@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Synopsis
+This document contains the data acquisation, processing and analyses of the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. It aims to answer the questions mentioned in the Questions section, and it does so by using the knowledge acquired in the first 5 courses of the Data Science Specialization from Coursera. The results are shown in the last section of this document.
 
 ## Questions
 1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
@@ -20,12 +21,12 @@ First, let's download the data. The data used for this analysis was downloaded o
 ```{r}
 fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 if(!file.exists("./dataset.bz2")){
-    # dir.create("./data")
     download.file(fileUrl, destfile="./dataset.bz2", method="curl")
 }
 ```
 
 ## Helper functions
+#### This section contains some supporting chunks of codes to avoid code repetition.
 This function checks if a package is already installed in the system, and installs it if needed
 ```{r  message=FALSE, results='hide'}
 checkAndInstall <- function(pkgName){
@@ -35,7 +36,7 @@ checkAndInstall <- function(pkgName){
 }
 ```
 
-The next chunck of code will install all the libraries needed for this analysis
+The next chunk of code will install all the libraries needed for this analysis
 ```{r message=FALSE, results='hide'}
 checkAndInstall("R.utils")
 checkAndInstall("data.table")
@@ -44,7 +45,7 @@ checkAndInstall("dplyr")
 checkAndInstall("ggplot2")
 ```
 
-And this will load all the above libraries
+And this will load all the above libraries. 
 ```{r message=FALSE, results='hide'}
 library(R.utils)
 library(qdap)
@@ -63,12 +64,11 @@ bunzip2("dataset.bz2", remove = FALSE, skip = TRUE)
 ## Data Processing
 Let's read the data using the `data.table` package.
 For the purpose of this assignment, only some of the columns in the dataset have been selected.
-```{r cache=TRUE}
+```{r cache=TRUE, message=FALSE, results='hide'}
 data <- fread("dataset", sep = ',', na.strings = c(""), 
               select = c("EVTYPE", "FATALITIES", "INJURIES",
                          "PROPDMG", "PROPDMGEXP", "CROPDMG",
-                         "CROPDMGEXP")
-)
+                         "CROPDMGEXP"))
 
 ```
 
@@ -86,7 +86,7 @@ We can see that there are way too many entries. Looking at the data may enlighte
 The data is sorted before the `print` function is called to make it easier to spot typos.
 
 ```{r}
-print(head(sort(unique(data$EVTYPE))))
+print(head(sort(unique(data$EVTYPE)), 10))
 ```
 
 The first cleaning that will be done is to set all the strings to lower case.
@@ -104,14 +104,9 @@ regmatches(
 ) <- ""
 ```
 
-```{r cache=TRUE, eval=FALSE}
-data$EVTYPE <- gsub("\\([^\\)]+\\)","", data$EVTYPE)
-```
-
 Remove all non-alphanumeric characters and remove unecessary whitespaces:
 ```{r cache=TRUE,  message=FALSE, results='hide'}
 data$EVTYPE <- Trim(clean(gsub("\\W", " ", data$EVTYPE)))
-# data$EVTYPE <- gsub("\W", " ", data$EVTYPE)
 ```
 
 Replace "tstm" with "thunderstorm"
@@ -140,53 +135,52 @@ data <- data[!grepl("summary", data$EVTYPE), ]
 ```
 
 
-Let's take another look now:
+Let's take another look at our dataset  now:
 ```{r}
 print(length(unique(data$EVTYPE)))
 print(head(sort(unique(data$EVTYPE))))
 ```
 
+We have reduced the amount of unique `EVTYPE`s from 985 to 566. It's still far from our desired 48 entries, but it's a good start.
+
+Now let's see which events are more frequent:
 
 ```{r cache=TRUE}
 freq <- as.data.frame(table(data$EVTYPE))
 freq <- arrange(freq, desc(Freq))
-rownames(freq) <- freq[,1]
 colnames(freq) <- c("EVTYPE", "freq")
 print(head(freq, 10))
 ```
 
-For this analysis, we will only consider events that happened 10 times or more AND caused at least 1 fatality or casualty.
+For this analysis, we will only consider events that caused at least 1 fatality or casualty.
 ```{r cache=TRUE}
-data_freq <- merge(data, freq)
-data_freq$total <- data_freq$FATALITIES + data_freq$INJURIES
+data_fat <- data
 
-question1 <- filter(data_freq, total > 0)
+# creating a new column with the sum of fatalities and injuries 
+data_fat$total <- data_fat$FATALITIES + data_fat$INJURIES
+
+question1 <- filter(data_fat, total > 0)
 question1 <- question1 %>%
     group_by(EVTYPE) %>%
     summarise(
         total = sum(total)
-    )
-question1 <- arrange(question1, desc(total))
-print(head(question1, 10))
-```
-
-```{r cache=TRUE}
-question1 <- as.data.frame(question1[1:5, ])
+    ) %>%
+    arrange(desc(total))
 print(head(question1))
-ggplot(data = question1, aes(x=reorder(EVTYPE, -total), y=total)) + 
-    geom_bar(stat="identity") +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    xlab("Event type") +
-    ylab("Total injuries + casualties") +
-    scale_y_continuous(breaks=pretty(question1$total, n=10), 
-                       labels = function(n){format(n, scientific = FALSE)})
 ```
 
+We can see that **tornadoes** and **thunderstorm winds** are the vilains when it comes to health damages.
+The full result will be shown in the **Results** section.
 
+-------------------------------
+Now let's do the analisys in order to answer **Question 2**.  
+The next chunk of code will do the following steps:
 
-#Question 2
+1. Convert all the expoents variables to lower case.
+2. Iterate through the dataset and multiply the number value by the expoent value.
+3. Create a new dataset with the final value for each kind of damage.
+
 ```{r cache=TRUE}
-print(head(data, 20))
 data$PROPDMGEXP <- tolower(data$PROPDMGEXP)
 data$CROPDMGEXP <- tolower(data$CROPDMGEXP)
 
@@ -234,42 +228,71 @@ damages <- do.call(rbind.data.frame, apply(data, 1, function(row){
 }))
 ```
 
-```{r}
-# print(str(damages))
+Now we have a `damages` dataframe containing the absolute value for property damages and crop damages.
+Let's create a new column called `total.damages` that will add the values of property damages and crop damages.
+
+```{r cache=TRUE}
 damages$total.damages <- damages$total.propdmg + damages$total.cropdmg
 rownames(damages) <- NULL
 rownames(data) <- NULL
-print(str(damages))
-data <- as.data.frame(data)
-print(str(data))
-
 ```
 
+And now we can merge this dataframe wth the original `data` dataframe so that we can perform the needed calculations.
 ```{r}
-
-
+data <- as.data.frame(data)
 merged.data <- merge(data, damages, by="row.names")
 print(head(merged.data))
 ```
 
-```{r}
+Finally, we can calculate which events have the greatest economic consequences by summing up the damage values.
+
+```{r cache=TRUE}
 most.damages <- merged.data %>%
     group_by(EVTYPE) %>%
     summarise(
         total.damage = sum(total.damages)
     ) %>%
     arrange(desc(total.damage))
-
 print(head(most.damages))
 ```
 
+From this table, we can see which events have the biggest impact. This result will be analysed in the **Results** section.
 
+
+## Results
+###1. Question 1
+The following plot shows the top 10 harmful events with respect to population health.
+```{r cache=TRUE}
+question1 <- as.data.frame(question1[1:10, ])
+ggplot(data = question1, aes(x=reorder(EVTYPE, -total), y=total)) + 
+    geom_bar(stat="identity") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    xlab("Event type") +
+    ylab("Total injuries + casualties") +
+    ggtitle("Events x casualties/fatalities in the U.S.") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    scale_y_continuous(breaks=pretty(question1$total, n=10), 
+                       labels = function(n){format(n, scientific = FALSE)})
+```
+
+###2. Question 2
+The next plot shows the 10 events with the greatest economic consequences.
+```{r}
+ggplot(data = most.damages[1:10, ], aes(x=reorder(EVTYPE, -total.damage), y=total.damage)) + 
+    geom_bar(stat="identity") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    xlab("Event type") +
+    ylab("Total damages") +
+    ggtitle("Events x crop and property damages in the U.S.") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    scale_y_continuous(breaks=pretty(most.damages$total.damage, n=10))
+```
 
 
 ## Acknowledgements
 [This post][1] by Usama A.F. Khalil was of great help during the developtment of this assignment.
 
-The information to convert the values needed for Question 2 were found [here][2]
+The information to convert the values needed for Question 2 were found [here][2].
 
 [1]: https://www.coursera.org/learn/reproducible-research/discussions/weeks/4/threads/IdtP_JHzEeaePQ71AQUtYw "Post"
 [2]: https://rstudio-pubs-static.s3.amazonaws.com/58957_37b6723ee52b455990e149edde45e5b6.html "Exp"
