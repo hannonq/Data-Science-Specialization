@@ -235,28 +235,32 @@ damages <- do.call(rbind.data.frame, apply(data, 1, function(row){
 ```
 
 ```{r}
-print(str(damages))
+# print(str(damages))
 damages$total.damages <- damages$total.propdmg + damages$total.cropdmg
 rownames(damages) <- NULL
 rownames(data) <- NULL
-print(head(damages))
+print(str(damages))
+data <- as.data.frame(data)
+print(str(data))
 
 ```
 
 ```{r}
+
+
 merged.data <- merge(data, damages, by="row.names")
 print(head(merged.data))
 ```
 
 ```{r}
-# most.damages <- merged.data %>%
-#     group_by(EVTYPE) %>%
-#     summarise(
-#         total.damage = sum(total.damages)
-#     ) %>%
-#     arrange(desc(total.damage))
-# 
-# print(head(most.damages))
+most.damages <- merged.data %>%
+    group_by(EVTYPE) %>%
+    summarise(
+        total.damage = sum(total.damages)
+    ) %>%
+    arrange(desc(total.damage))
+
+print(head(most.damages))
 ```
 
 
