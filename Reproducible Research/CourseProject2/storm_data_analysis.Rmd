@@ -35,12 +35,27 @@ checkAndInstall <- function(pkgName){
 }
 ```
 
+The next chunck of code will install all the libraries needed for this analysis
+```{r message=FALSE, results='hide'}
+checkAndInstall("R.utils")
+checkAndInstall("data.table")
+checkAndInstall("qdap")
+checkAndInstall("dplyr")
+checkAndInstall("ggplot2")
+```
+
+And this will load all the above libraries
+```{r message=FALSE, results='hide'}
+library(R.utils)
+library(qdap)
+library(ggplot2)
+library(data.table)
+library(dplyr)
+```
 
 ## Loading the data
 Because the data is compressed in a `.bz2` file, let's first uncompress it using the `bunzip2` function from the `R.utils` package.
 ```{r message=FALSE, results='hide'}
-checkAndInstall("R.utils")
-library(R.utils)
 bunzip2("dataset.bz2", remove = FALSE, skip = TRUE)
 ```
 
@@ -49,9 +64,6 @@ bunzip2("dataset.bz2", remove = FALSE, skip = TRUE)
 Let's read the data using the `data.table` package.
 For the purpose of this assignment, only some of the columns in the dataset have been selected.
 ```{r cache=TRUE}
-# Check if package is installed, and install it if necessary
-checkAndInstall("data.table")
-library(data.table)
 data <- fread("dataset", sep = ',', na.strings = c(""), 
               select = c("EVTYPE", "FATALITIES", "INJURIES",
                          "PROPDMG", "PROPDMGEXP", "CROPDMG",
@@ -98,8 +110,6 @@ data$EVTYPE <- gsub("\\([^\\)]+\\)","", data$EVTYPE)
 
 Remove all non-alphanumeric characters and remove unecessary whitespaces:
 ```{r cache=TRUE,  message=FALSE, results='hide'}
-checkAndInstall("qdap")
-library(qdap)
 data$EVTYPE <- Trim(clean(gsub("\\W", " ", data$EVTYPE)))
 # data$EVTYPE <- gsub("\W", " ", data$EVTYPE)
 ```
@@ -138,8 +148,6 @@ print(head(sort(unique(data$EVTYPE))))
 
 
 ```{r cache=TRUE}
-checkAndInstall("dplyr")
-library(dplyr)
 freq <- as.data.frame(table(data$EVTYPE))
 freq <- arrange(freq, desc(Freq))
 rownames(freq) <- freq[,1]
@@ -149,7 +157,6 @@ print(head(freq, 10))
 
 For this analysis, we will only consider events that happened 10 times or more AND caused at least 1 fatality or casualty.
 ```{r cache=TRUE}
-library(dplyr)
 data_freq <- merge(data, freq)
 data_freq$total <- data_freq$FATALITIES + data_freq$INJURIES
 
@@ -166,8 +173,6 @@ print(head(question1, 10))
 ```{r cache=TRUE}
 question1 <- as.data.frame(question1[1:5, ])
 print(head(question1))
-
-library(ggplot2)
 ggplot(data = question1, aes(x=reorder(EVTYPE, -total), y=total)) + 
     geom_bar(stat="identity") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
@@ -233,6 +238,7 @@ damages <- do.call(rbind.data.frame, apply(data, 1, function(row){
 print(str(damages))
 damages$total.damages <- damages$total.propdmg + damages$total.cropdmg
 rownames(damages) <- NULL
+rownames(data) <- NULL
 print(head(damages))
 
 ```
@@ -243,15 +249,14 @@ print(head(merged.data))
 ```
 
 ```{r}
-library(dplyr)
-most.damages <- merged.data %>%
-    group_by(EVTYPE) %>%
-    summarise(
-        total.damage = sum(total.damages)
-    ) %>%
-    arrange(desc(total.damage))
-
-print(head(most.damages))
+# most.damages <- merged.data %>%
+#     group_by(EVTYPE) %>%
+#     summarise(
+#         total.damage = sum(total.damages)
+#     ) %>%
+#     arrange(desc(total.damage))
+# 
+# print(head(most.damages))
 ```
 
 
@@ -260,7 +265,10 @@ print(head(most.damages))
 ## Acknowledgements
 [This post][1] by Usama A.F. Khalil was of great help during the developtment of this assignment.
 
+The information to convert the values needed for Question 2 were found [here][2]
+
 [1]: https://www.coursera.org/learn/reproducible-research/discussions/weeks/4/threads/IdtP_JHzEeaePQ71AQUtYw "Post"
+[2]: https://rstudio-pubs-static.s3.amazonaws.com/58957_37b6723ee52b455990e149edde45e5b6.html "Exp"
 
 
 
